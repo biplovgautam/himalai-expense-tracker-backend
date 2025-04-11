@@ -1,10 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from datetime import timedelta, datetime
 from ..core.database import get_db
-from ..schemas.user import UserCreateRequest, UserResponse  # Update import
-from ..services.auth_service import create_user, verify_user
+from ..schemas.user import UserCreateRequest, UserResponse, TokenResponse, VerificationRequest
+from ..services.auth_service import create_user, verify_user, authenticate_user, create_access_token
 from ..utils.email import send_verification_email
 from ..models.user import User
+from ..core.config import settings
 
 router = APIRouter(tags=["Authentication"], prefix="/auth")
 
@@ -25,7 +28,7 @@ router = APIRouter(tags=["Authentication"], prefix="/auth")
                 }
             })
 async def signup(
-    user_request: UserCreateRequest,  # Change from UserCreate to UserCreateRequest
+    user_request: UserCreateRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
@@ -64,15 +67,90 @@ async def signup(
     
     return user
 
-@router.post("/verify", status_code=status.HTTP_200_OK)
-async def verify_email(verification_code: str, email: str, db: Session = Depends(get_db)):
+@router.post("/login", response_model=TokenResponse)
+async def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+):
     """
-    Verify a user's email using the verification code.
+    Authenticate user and return JWT tokens.
     """
-    if verify_user(db, verification_code, email):
-        return {"message": "Email verified successfully"}
-    else:
+    # Authenticate user
+    user = authenticate_user(db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Email not verified. Please verify your email first.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Create access token
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email},
+        expires_delta=access_token_expires
+    )
+    
+    # Create refresh token (optional)
+    refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    refresh_token = create_access_token(
+        data={"sub": user.email, "refresh": True},
+        expires_delta=refresh_token_expires
+    )
+    
+    # Update last login timestamp
+    user.last_login = datetime.utcnow()
+    db.commit()
+    
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": user
+    }
+
+@router.post("/verify", response_model=TokenResponse)
+async def verify_email(
+    verification_data: VerificationRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Verify email with verification code and return JWT tokens.
+    """
+    # Verify the code
+    verified = verify_user(db, verification_data.code, verification_data.email)
+    if not verified:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid verification code or code expired"
+            detail="Invalid verification code or email"
         )
+    
+    # Get the user
+    user = db.query(User).filter(User.email == verification_data.email).first()
+    
+    # Create tokens as in login endpoint
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email},
+        expires_delta=access_token_expires
+    )
+    
+    refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    refresh_token = create_access_token(
+        data={"sub": user.email, "refresh": True},
+        expires_delta=refresh_token_expires
+    )
+    
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": user
+    }

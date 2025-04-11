@@ -99,3 +99,13 @@ class TokenData(BaseModel):
     access_token: str
     token_type: str
     user: UserResponse
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str
+    user: UserResponse
+
+class VerificationRequest(BaseModel):
+    email: EmailStr
+    code: str

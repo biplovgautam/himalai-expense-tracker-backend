@@ -8,6 +8,9 @@ from ..schemas.user import UserCreate
 from passlib.context import CryptContext
 import logging
 from ..core.logging import logger
+from jose import jwt
+from typing import Optional
+from ..core.config import settings
 
 # Silence the specific bcrypt warning
 logging.getLogger("passlib.handlers.bcrypt").setLevel(logging.ERROR)
@@ -18,6 +21,10 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 def get_password_hash(password: str) -> str:
     """Hash a password for storing."""
     return pwd_context.hash(password)
+
+# Password verification
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
 
 def generate_verification_code() -> str:
     """Generate a random 6-digit verification code."""
@@ -62,6 +69,41 @@ def create_user(db: Session, user_data: UserCreate) -> User:
     db.refresh(db_user)
     
     return db_user
+
+def authenticate_user(db: Session, username_or_email: str, password: str) -> Optional[User]:
+    """
+    Authenticate a user by username/email and password.
+    Returns the user if authentication is successful, None otherwise.
+    """
+    # Check if input is email or username
+    if "@" in username_or_email:
+        user = db.query(User).filter(User.email == username_or_email).first()
+    else:
+        user = db.query(User).filter(User.username == username_or_email).first()
+    
+    if not user:
+        return None
+    
+    if not verify_password(password, user.password):
+        return None
+    
+    return user
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    """
+    Create a JWT token with the provided data and expiration time.
+    """
+    to_encode = data.copy()
+    
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm="HS256")
+    
+    return encoded_jwt
 
 def verify_user(db: Session, verification_code: str, email: str) -> bool:
     """

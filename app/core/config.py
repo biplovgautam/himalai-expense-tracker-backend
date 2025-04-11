@@ -1,28 +1,23 @@
 import os
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
 class Settings:
-    # Basic settings
-    APP_NAME: str = "THimalai Expense Analysis API"
-    API_V1_STR: str = "/api"
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-here")
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+    APP_NAME = os.getenv("APP_NAME", "Himalai Expense Analysis")
+    ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+    DEBUG = os.getenv("DEBUG", "True").lower() == "true"
     
-    # CORS settings
-    ALLOWED_ORIGINS: list = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
+    # API settings
+    API_V1_STR = os.getenv("API_V1_STR", "/api/v1")
     
-    # Environment
-    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
+    # JWT Settings
+    SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-replace-in-production")
+    ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+    REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
     
-    # Database settings
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "")
+    # CORS Settings
+    ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
 
-# Create settings instance
 settings = Settings()
-
-print(f"ALLOWED_ORIGINS: {settings.ALLOWED_ORIGINS}")
-print(f"ENVIRONMENT: {settings.ENVIRONMENT}")
+#
