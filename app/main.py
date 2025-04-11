@@ -18,11 +18,11 @@ app = FastAPI(
 )
 
 # Alternative solution for main.py
-origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
+origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000,http://localhost:5173,http://127.0.0.1:5173").split(",")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Changed from settings.ALLOWED_ORIGINS to origins
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,9 +36,9 @@ async def root():
     return {"message": "Welcome to Himalai Expense Analysis API", "docs_url": "/docs"}
 
 # Include routers with API prefix
-app.include_router(auth.router, prefix=settings.API_V1_STR)  # Make sure this line is present
+app.include_router(auth.router, prefix=settings.API_V1_STR)  # Original inclusion
+app.include_router(auth.router)  # Add this line to include auth router without prefix
 app.include_router(health.router, prefix=settings.API_V1_STR)
-
 
 # Startup event
 @app.on_event("startup")
