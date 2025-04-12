@@ -41,7 +41,7 @@ def create_user(db: Session, user_data: UserCreate) -> User:
     
     # Create User instance
     db_user = User(
-        id=str(uuid.uuid4()),
+        id=uuid.uuid4(),  # Don't convert to string - keep as UUID object
         email=user_data.email,
         username=user_data.username or user_data.email.split('@')[0],
         password=hashed_password,
@@ -58,7 +58,7 @@ def create_user(db: Session, user_data: UserCreate) -> User:
     
     # Create user profile
     db_profile = UserProfile(
-        id=str(uuid.uuid4()),
+        id=uuid.uuid4(),  # Don't convert to string - keep as UUID object
         user_id=db_user.id,
         points=10  # Start with 10 points as a welcome bonus
     )

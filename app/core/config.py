@@ -18,6 +18,12 @@ class Settings:
     
     # CORS Settings
     ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
+    
+    # Database settings
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost/himalai_db")
+    DB_CONNECT_ARGS: dict = {"sslmode": os.getenv("DB_SSLMODE", "prefer")}
+    DB_POOL_SIZE: int = int(os.getenv("DB_POOL_SIZE", "5"))
+    DB_MAX_OVERFLOW: int = int(os.getenv("DB_MAX_OVERFLOW", "10"))
 
 settings = Settings()
 #

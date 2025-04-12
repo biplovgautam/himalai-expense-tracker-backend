@@ -1,11 +1,12 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from .core.config import settings
 from .routes import health, auth
 from .core.logging import logger
-from .core.database import Base, engine
+from .core.database import Base, engine, test_db_connection, get_db
 from dotenv import load_dotenv
 import os
+import sqlalchemy.exc
 
 # Load environment variables
 load_dotenv()
@@ -28,22 +29,46 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Create database tables (comment out if using Alembic)
-Base.metadata.create_all(bind=engine)
+# Attempt to create database tables with better error handling
+try:
+    Base.metadata.create_all(bind=engine)
+    logger.info("Database tables created successfully")
+except sqlalchemy.exc.OperationalError as e:
+    logger.error(f"Failed to create database tables: {str(e)}")
+    logger.error("Please check your database connection settings")
+except Exception as e:
+    logger.error(f"Unexpected error creating database tables: {str(e)}")
 
 @app.get("/")
 async def root():
     return {"message": "Welcome to Himalai Expense Analysis API", "docs_url": "/docs"}
 
+# Add a database health check endpoint
+@app.get("/db-health")
+async def db_health():
+    success, message = test_db_connection()
+    if success:
+        return {"status": "ok", "message": message}
+    else:
+        return {"status": "error", "message": message}
+
 # Include routers with API prefix
-app.include_router(auth.router, prefix=settings.API_V1_STR)  # Original inclusion
-app.include_router(auth.router)  # Add this line to include auth router without prefix
+app.include_router(auth.router, prefix=settings.API_V1_STR)
+app.include_router(auth.router)
 app.include_router(health.router, prefix=settings.API_V1_STR)
 
 # Startup event
 @app.on_event("startup")
 async def startup_event():
-    logger.info("Starting Himalai Expense Analysis API")  # Updated from "Tripo API"
+    logger.info("Starting Himalai Expense Analysis API")
+    
+    # Test database connection
+    success, message = test_db_connection()
+    if success:
+        logger.info(message)
+    else:
+        logger.error(message)
+        logger.error("Application started with database connection issues")
 
 # Shutdown event
 @app.on_event("shutdown")
