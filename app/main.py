@@ -54,7 +54,7 @@ async def db_health():
 
 # Include routers with API prefix
 app.include_router(auth.router, prefix=settings.API_V1_STR)
-app.include_router(auth.router)
+# app.include_router(auth.router)
 app.include_router(health.router, prefix=settings.API_V1_STR)
 
 # Startup event

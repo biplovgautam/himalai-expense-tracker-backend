@@ -17,6 +17,7 @@ class User(Base):
     first_name = Column(String)
     last_name = Column(String)
     is_active = Column(Boolean, default=False)
+    is_admin = Column(Boolean, default=False)
     vr_code = Column(String, nullable=True)
     vr_code_expires = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=func.now())
@@ -40,6 +41,9 @@ class UserProfile(Base):
     total_savings = Column(Float, default=0.0)
     profile_picture = Column(String, nullable=True)
     bio = Column(String, nullable=True)
+    gender = Column(String, nullable=True)
+    age = Column(Integer, nullable=True)
+    is_profile_complete = Column(Boolean, default=False)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 

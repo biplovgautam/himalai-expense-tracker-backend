@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Header
+from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from datetime import timedelta, datetime
+from jose import jwt, JWTError
 from ..core.database import get_db
 from ..schemas.user import UserCreateRequest, UserResponse, TokenResponse, VerificationRequest
 from ..services.auth_service import create_user, verify_user, authenticate_user, create_access_token
@@ -153,4 +154,27 @@ async def verify_email(
         "refresh_token": refresh_token,
         "token_type": "bearer",
         "user": user
+    }
+
+@router.get("/check-admin")
+async def check_admin_status(
+    email: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Check if a user is an admin by email.
+    """
+    user = db.query(User).filter(User.email == email).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+        
+    return {
+        "is_admin": user.is_admin,
+        "user_id": str(user.id),
+        "email": user.email,
+        "username": user.username
     }
