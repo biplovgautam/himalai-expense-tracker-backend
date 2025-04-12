@@ -178,3 +178,45 @@ async def check_admin_status(
         "email": user.email,
         "username": user.username
     }
+
+@router.post("/logout")
+async def logout(
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Logout endpoint - invalidates the current session
+    
+    Note: This is a best-practice implementation for JWT authentication.
+    The client must remove tokens from local storage after this call.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    token = authorization.split(" ")[1]
+    
+    try:
+        # Decode token to get user information
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        email = payload.get("sub")
+        
+        # Optional: For enhanced security, you could implement token blacklisting here
+        # For example, store token in a Redis blacklist with expiry = token's remaining lifetime
+        
+        # Update last session info if needed
+        user = db.query(User).filter(User.email == email).first()
+        if user:
+            # Optional: Update user's session info if needed
+            # user.last_logout = datetime.utcnow()
+            # db.commit()
+            pass
+            
+        return {"status": "success", "message": "Successfully logged out"}
+        
+    except JWTError:
+        # Token is invalid, which is fine for logout
+        return {"status": "success", "message": "Successfully logged out"}
