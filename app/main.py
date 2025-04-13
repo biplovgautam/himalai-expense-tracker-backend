@@ -10,7 +10,7 @@ import sqlalchemy.exc
 
 # Load environment variables
 load_dotenv()
-
+#
 # Initialize FastAPI app
 app = FastAPI(
     title=settings.APP_NAME,
