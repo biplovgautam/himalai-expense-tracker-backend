@@ -1,26 +1,52 @@
-from fastapi import FastAPI, Depends
-from fastapi.middleware.cors import CORSMiddleware
-from .core.config import settings
-from .routes import health, auth, transaction, file_upload
-from .core.logging import logger
-from .core.database import Base, engine, test_db_connection, get_db
-from dotenv import load_dotenv
 import os
 import sqlalchemy.exc
+
+# 1. FIRST load environment variables before anything else
+from dotenv import load_dotenv
+load_dotenv()
+
+# Now import everything else
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.core.config import settings
+from app.core.logging import logger
+from app.core.database import Base, engine, test_db_connection
+
+# Import routers
+from app.routes import health, auth, transaction, file_upload
 from app.routes.user_detail import router as user_detail_router
 
-# Load environment variables
-load_dotenv()
-#
-# Initialize FastAPI app
+
+# 2. Validate critical configurations immediately
+def validate_config():
+    required_vars = {
+        "GROQ_API_KEY": "Groq API key",
+        "DATABASE_URL": "Database connection URL",
+        "SECRET_KEY": "JWT secret key"
+    }
+    
+    missing = []
+    for var, desc in required_vars.items():
+        if not os.getenv(var, "").strip():  # Check for empty/whitespace values
+            missing.append(f"{desc} ({var})")
+    
+    if missing:
+        error_msg = f"Missing required configurations: {', '.join(missing)}"
+        logger.error(error_msg)
+        raise RuntimeError(error_msg)
+
+validate_config()
+
+# 3. Now initialize FastAPI app
 app = FastAPI(
     title=settings.APP_NAME,
     description="Himalai Expense Analysis",
     version="1.0.0"
 )
 
-# Alternative solution for main.py
-origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000,http://localhost:5173,http://127.0.0.1:5173").split(",")
+# CORS configuration
+origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
+origins = [origin.strip() for origin in origins if origin.strip()]  # Clean empty values
 
 app.add_middleware(
     CORSMiddleware,
@@ -30,61 +56,61 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Attempt to create database tables with better error handling
+# Database initialization with better error handling
 try:
     Base.metadata.create_all(bind=engine)
     logger.info("Database tables created successfully")
 except sqlalchemy.exc.OperationalError as e:
-    logger.error(f"Failed to create database tables: {str(e)}")
-    logger.error("Please check your database connection settings")
+    logger.error(f"Database connection failed: {str(e)}")
+    logger.error("Please check your DATABASE_URL in .env")
 except Exception as e:
-    logger.error(f"Unexpected error creating database tables: {str(e)}")
+    logger.error(f"Unexpected database error: {str(e)}")
 
+# Routes
 @app.get("/")
 async def root():
     return {"message": "Welcome to Himalai Expense Analysis API", "docs_url": "/docs"}
 
-# Add a database health check endpoint
 @app.get("/db-health")
 async def db_health():
     success, message = test_db_connection()
-    if success:
-        return {"status": "ok", "message": message}
-    else:
-        return {"status": "error", "message": message}
+    return {"status": "ok" if success else "error", "message": message}
 
-# Include routers with API prefix
+# Include all routers
 app.include_router(auth.router, prefix=settings.API_V1_STR)
-# app.include_router(auth.router)
 app.include_router(health.router, prefix=settings.API_V1_STR)
 app.include_router(transaction.router, prefix=settings.API_V1_STR)
+app.include_router(file_upload.router, prefix=settings.API_V1_STR)
 app.include_router(
     user_detail_router,
-    prefix="/api/users",  # This sets the base path for all routes in user_detail.py
-    tags=["Users"]        # This organizes routes in the auto-generated docs
+    prefix="/api/users",
+    tags=["Users"]
 )
-app.include_router(
-    file_upload.router,
-    prefix=settings.API_V1_STR  # Check what this value is
-)
-# Startup event
+
+
+# Startup/shutdown events
 @app.on_event("startup")
 async def startup_event():
-    logger.info("Starting Himalai Expense Analysis API")
+    logger.info(f"Starting {settings.APP_NAME} (Environment: {settings.ENVIRONMENT})")
+    logger.debug(f"Allowed origins: {origins}")
+    logger.debug(f"Groq model: {settings.GROQ_MODEL}")
     
-    # Test database connection
     success, message = test_db_connection()
     if success:
-        logger.info(message)
+        logger.info("Database connection successful")
     else:
-        logger.error(message)
-        logger.error("Application started with database connection issues")
+        logger.error(f"Database connection failed: {message}")
 
-# Shutdown event
 @app.on_event("shutdown")
 async def shutdown_event():
-    logger.info("Shutting down Himalai Expense Analysis API")
+    logger.info("Shutting down application")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(
+        "app.main:app",
+        host=os.getenv("HOST", "0.0.0.0"),
+        port=int(os.getenv("PORT", "8000")),
+        reload=settings.DEBUG,
+        log_level="debug" if settings.DEBUG else "info"
+    )

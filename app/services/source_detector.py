@@ -4,6 +4,8 @@ import aiohttp
 from typing import Dict, Optional
 from fastapi import HTTPException, status
 from ..core.config import settings
+from fastapi import HTTPException, status
+from app.services.groq_service import GroqService
 
 # This system prompt is carefully crafted for source detection
 SYSTEM_PROMPT = """You are a financial data analysis expert. Your job is to determine the *source* of CSV transaction data files extracted from banks or financial platforms in Nepal. 
@@ -155,3 +157,6 @@ async def detect_source(csv_data: str) -> Dict[str, str]:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Source detection error: {str(e)}"
         )
+    
+
+    

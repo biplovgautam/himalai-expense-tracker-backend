@@ -18,9 +18,10 @@ class TransactionCreate(TransactionBase):
 
 class TransactionUpdate(BaseModel):
     transaction_id: Optional[str] = None
-    date: Optional[date] = None
-    time: Optional[time] = None
+    transaction_date: Optional[date] = None
+    transaction_time: Optional[time] = None
     description: Optional[str] = None
+    category: Optional[str] = None
     dr: Optional[float] = None
     cr: Optional[float] = None
     source: Optional[str] = None
