@@ -11,6 +11,7 @@ class VoucherType(str, Enum):
 class VoucherBase(BaseModel):
     code: str
     title: str
+    points_cost: int
     image_url: Optional[str] = None
     description: Optional[str] = None
     amount: float
@@ -45,6 +46,7 @@ class VoucherUpdate(BaseModel):
 
 class VoucherResponse(VoucherBase):
     id: UUID
+    points_cost: int
     usage_count: int
     created_at: datetime
     updated_at: datetime
@@ -59,3 +61,9 @@ class VoucherValidateResponse(BaseModel):
     message: str
     voucher: Optional[VoucherResponse] = None
     discount_amount: Optional[float] = None
+
+class VoucherPurchaseResponse(BaseModel):
+    success: bool
+    message: str
+    voucher: Optional[VoucherResponse]
+    remaining_points: Optional[int]

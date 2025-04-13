@@ -4,13 +4,16 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from ..core.database import get_db
 from app.models.user import User, UserProfile
-from app.schemas.user import UserResponse, PaginatedUserResponse
+from app.schemas.user import (
+    UserResponse, PaginatedUserResponse,
+    ProfileResponse, ProfileUpdate  # Import from schemas
+)
 
 router = APIRouter()
 
 @router.get("/", response_model=PaginatedUserResponse)
 def get_users(
-    requesting_user_id: UUID,  # New parameter for user making the request
+    requesting_user_id: UUID,
     db: Session = Depends(get_db),
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
@@ -79,10 +82,84 @@ def get_users(
         "pages": (total + limit - 1) // limit
     }
 
+@router.get("/profile", response_model=ProfileResponse)
+def get_user_profile(
+    requesting_user_id: UUID,
+    db: Session = Depends(get_db)
+):
+    """
+    Get the current user's profile with points
+    """
+    user = db.query(User).filter(User.id == requesting_user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Return profile, create one if it doesn't exist
+    if not user.profile:
+        profile = UserProfile(user_id=user.id, points=0, total_uploads=0)
+        db.add(profile)
+        db.commit()
+        db.refresh(profile)
+        return profile
+    
+    return user.profile
+
+@router.patch("/{user_id}/profile", response_model=ProfileResponse)
+def update_user_profile(
+    user_id: UUID,
+    profile_data: ProfileUpdate,
+    requesting_user_id: UUID,
+    db: Session = Depends(get_db)
+):
+    """
+    Update user profile.
+    Users can only update their own profile unless they are an admin.
+    """
+    # Check if requesting user exists
+    requesting_user = db.query(User).filter(User.id == requesting_user_id).first()
+    if not requesting_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Requesting user not found"
+        )
+    
+    # Check permissions - users can only update their own profile unless they are admin
+    if str(requesting_user_id) != str(user_id) and not requesting_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions to update another user's profile"
+        )
+    
+    # Get the target user
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Get or create profile
+    profile = user.profile
+    if not profile:
+        profile = UserProfile(user_id=user.id, points=0, total_uploads=0)
+        db.add(profile)
+    
+    # Update profile fields
+    for field, value in profile_data.dict(exclude_unset=True).items():
+        if value is not None:
+            setattr(profile, field, value)
+    
+    db.commit()
+    db.refresh(profile)
+    return profile
+
 @router.get("/{user_id}", response_model=UserResponse)
 def get_user(
     user_id: UUID,
-    requesting_user_id: UUID,  # New parameter for user making the request
+    requesting_user_id: UUID,
     db: Session = Depends(get_db),
 ):
     """
@@ -115,7 +192,7 @@ def get_user(
 def update_user(
     user_id: UUID,
     user_data: dict,
-    requesting_user_id: UUID,  # New parameter for user making the request
+    requesting_user_id: UUID,
     db: Session = Depends(get_db),
 ):
     """
@@ -151,7 +228,7 @@ def update_user(
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_user(
     user_id: UUID,
-    requesting_user_id: UUID,  # New parameter for user making the request
+    requesting_user_id: UUID,
     db: Session = Depends(get_db),
 ):
     """

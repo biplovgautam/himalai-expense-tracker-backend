@@ -4,6 +4,7 @@ from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
 from ..core.database import Base
 import uuid
+from app.models.voucher import user_vouchers
 
 
 class User(Base):
@@ -29,6 +30,7 @@ class User(Base):
     sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
     transactions = relationship("Transaction", back_populates="user", cascade="all, delete-orphan")
     created_vouchers = relationship("Voucher", back_populates="created_by")
+    purchased_vouchers = relationship("Voucher", secondary="user_vouchers", back_populates="purchased_by")
     
 
 class UserProfile(Base):

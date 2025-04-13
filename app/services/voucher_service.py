@@ -4,6 +4,7 @@ from uuid import UUID
 import random
 import string
 from fastapi import HTTPException, status
+from app.models.user import User
 
 from app.models.voucher import Voucher, VoucherType
 from app.schemas.voucher import VoucherCreate, VoucherUpdate
@@ -17,23 +18,63 @@ def create_voucher(db: Session, voucher_data: VoucherCreate, creator_id: UUID = 
     """Create a new voucher"""
     db_voucher = Voucher(
         code=voucher_data.code,
-        title=voucher_data.title,
+        title=voucher_data.title,  # Make sure this field is included
         description=voucher_data.description,
+        points_cost=voucher_data.points_cost,
         amount=voucher_data.amount,
         type=voucher_data.type,
         valid_from=voucher_data.valid_from or datetime.utcnow(),
         valid_until=voucher_data.valid_until,
-        is_active=voucher_data.is_active,
-        usage_limit=voucher_data.usage_limit,
-        min_purchase_amount=voucher_data.min_purchase_amount,
-        created_by_id=creator_id,
-        image_url=voucher_data.image_url,
+        is_active=voucher_data.is_active if hasattr(voucher_data, 'is_active') else True,
+        usage_limit=voucher_data.usage_limit if hasattr(voucher_data, 'usage_limit') else 1,
+        min_purchase_amount=voucher_data.min_purchase_amount if hasattr(voucher_data, 'min_purchase_amount') else 0.0,
+        created_by_id=creator_id
     )
     
     db.add(db_voucher)
     db.commit()
     db.refresh(db_voucher)
-    return db_voucher
+    return db_voucher  # Add this return statement
+# Add this function to your existing voucher_service.py
+
+def purchase_voucher(db: Session, voucher_id: UUID, user_id: UUID):
+    """Purchase a voucher with user points"""
+    # Get the user and voucher
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return {"success": False, "message": "User not found"}
+    
+    voucher = get_voucher_by_id(db, voucher_id)
+    if not voucher:
+        return {"success": False, "message": "Voucher not found"}
+    
+    # Check if voucher is valid
+    if not voucher.is_valid():
+        return {"success": False, "message": "Voucher is not available"}
+    
+    # Check if user has enough points
+    if user.profile.points < voucher.points_cost:
+        return {"success": False, "message": f"Not enough points. Required: {voucher.points_cost}, Available: {user.profile.points}"}
+    
+    # Check if user already purchased this voucher
+    if voucher in user.purchased_vouchers:
+        return {"success": False, "message": "You have already purchased this voucher"}
+    
+    # Deduct points and add voucher to user's purchased vouchers
+    user.profile.points -= voucher.points_cost
+    user.purchased_vouchers.append(voucher)
+    
+    # Increase usage count
+    voucher.usage_count += 1
+    
+    db.commit()
+    
+    return {
+        "success": True, 
+        "message": "Voucher purchased successfully", 
+        "voucher": voucher,
+        "remaining_points": user.profile.points
+    }
 
 def get_vouchers(db: Session, skip: int = 0, limit: int = 100, active_only: bool = False):
     """Get all vouchers with optional filtering"""

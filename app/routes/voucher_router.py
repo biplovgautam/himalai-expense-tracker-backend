@@ -2,19 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from uuid import UUID
-
+# Add this to your imports in voucher_router.py
+from typing import List, Optional, Dict, Any  # Add Dict, Any
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.voucher import VoucherCreate, VoucherUpdate, VoucherResponse, VoucherValidateResponse
 from app.services.voucher_service import (
     create_voucher, get_vouchers, get_voucher_by_id, 
-    update_voucher, delete_voucher, validate_voucher, redeem_voucher
+    update_voucher, delete_voucher, validate_voucher, redeem_voucher,
+    purchase_voucher  # Add this line
 )
-
-router = APIRouter(
-    # prefix="/vouchers",
-    tags=["vouchers"]
-)
+router = APIRouter()
 
 @router.post("/", response_model=VoucherResponse, status_code=status.HTTP_201_CREATED)
 def create_new_voucher(
@@ -65,6 +63,30 @@ def get_all_vouchers(
         active_only = True
     
     return get_vouchers(db=db, skip=skip, limit=limit, active_only=active_only)
+
+# Move this route BEFORE any routes with path parameters like /{id}
+@router.get("/purchased", response_model=List[VoucherResponse])
+def get_purchased_vouchers(
+    requesting_user_id: UUID,
+    db: Session = Depends(get_db)
+):
+    """
+    Get all vouchers purchased by the user
+    """
+    # Verify user exists
+    user = db.query(User).filter(User.id == requesting_user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Check if the user has purchased vouchers
+    if not hasattr(user, 'purchased_vouchers'):
+        # Return empty list if relationship doesn't exist
+        return []
+    
+    return user.purchased_vouchers
 
 @router.get("/{voucher_id}", response_model=VoucherResponse)
 def get_voucher(
@@ -205,6 +227,34 @@ def redeem_voucher_code(
     
     result = redeem_voucher(db=db, code=code, purchase_amount=purchase_amount)
     if not result["valid"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=result["message"]
+        )
+    
+    return result
+
+# Add this endpoint to your voucher router
+
+@router.post("/{voucher_id}/purchase", response_model=Dict[str, Any])
+def purchase_voucher_endpoint(
+    voucher_id: UUID,
+    requesting_user_id: UUID,
+    db: Session = Depends(get_db)
+):
+    """
+    Purchase a voucher with user points
+    """
+    # Verify user exists
+    user = db.query(User).filter(User.id == requesting_user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    result = purchase_voucher(db=db, voucher_id=voucher_id, user_id=user.id)
+    if not result["success"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=result["message"]

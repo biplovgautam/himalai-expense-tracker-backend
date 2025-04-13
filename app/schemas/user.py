@@ -120,3 +120,17 @@ class PaginatedUserResponse(BaseModel):
     class Config:
         from_attributes = True
         orm_mode = True
+
+# Add these profile schemas to your existing user schemas
+
+class ProfileResponse(BaseModel):
+    points: int = 0
+    total_uploads: int = 0
+    
+    class Config:
+        from_attributes = True
+        orm_mode = True
+
+class ProfileUpdate(BaseModel):
+    points: Optional[int] = None
+    total_uploads: Optional[int] = None
