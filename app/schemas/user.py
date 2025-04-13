@@ -134,3 +134,5 @@ class ProfileResponse(BaseModel):
 class ProfileUpdate(BaseModel):
     points: Optional[int] = None
     total_uploads: Optional[int] = None
+
+#

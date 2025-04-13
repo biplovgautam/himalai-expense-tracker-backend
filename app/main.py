@@ -67,7 +67,7 @@ except sqlalchemy.exc.OperationalError as e:
 except Exception as e:
     logger.error(f"Unexpected database error: {str(e)}")
 
-# Routes
+# Route
 @app.get("/")
 async def root():
     return {"message": "Welcome to Himalai Expense Analysis API", "docs_url": "/docs"}
@@ -90,7 +90,7 @@ app.include_router(
 app.include_router(voucher_router, prefix="/api/vouchers", tags=["Vouchers"])
 
 
-# Startup/shutdown events
+# Startup/shutdown events#
 @app.on_event("startup")
 async def startup_event():
     logger.info(f"Starting {settings.APP_NAME} (Environment: {settings.ENVIRONMENT})")
