@@ -7,6 +7,7 @@ from .core.database import Base, engine, test_db_connection, get_db
 from dotenv import load_dotenv
 import os
 import sqlalchemy.exc
+from app.routes.user_detail import router as user_detail_router
 
 # Load environment variables
 load_dotenv()
@@ -57,6 +58,11 @@ app.include_router(auth.router, prefix=settings.API_V1_STR)
 # app.include_router(auth.router)
 app.include_router(health.router, prefix=settings.API_V1_STR)
 app.include_router(transaction.router, prefix=settings.API_V1_STR)
+app.include_router(
+    user_detail_router,
+    prefix="/api/users",  # This sets the base path for all routes in user_detail.py
+    tags=["Users"]        # This organizes routes in the auto-generated docs
+)
 
 # Startup event
 @app.on_event("startup")

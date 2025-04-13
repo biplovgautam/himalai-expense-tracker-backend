@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field, validator
-from typing import Optional, Union
+from typing import List, Optional, Union, Dict, Any
+
 from datetime import datetime
 import re
 import uuid
@@ -109,3 +110,13 @@ class TokenResponse(BaseModel):
 class VerificationRequest(BaseModel):
     email: EmailStr
     code: str
+
+class PaginatedUserResponse(BaseModel):
+    items: List[Dict[str, Any]]  # Using Dict instead of UserResponse to avoid circular refs
+    total: int
+    page: int
+    pages: int
+    
+    class Config:
+        from_attributes = True
+        orm_mode = True
