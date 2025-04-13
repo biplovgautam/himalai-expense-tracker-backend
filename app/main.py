@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from .core.config import settings
-from .routes import health, auth, transaction
+from .routes import health, auth, transaction, file_upload
 from .core.logging import logger
 from .core.database import Base, engine, test_db_connection, get_db
 from dotenv import load_dotenv
@@ -63,7 +63,10 @@ app.include_router(
     prefix="/api/users",  # This sets the base path for all routes in user_detail.py
     tags=["Users"]        # This organizes routes in the auto-generated docs
 )
-
+app.include_router(
+    file_upload.router,
+    prefix=settings.API_V1_STR  # Check what this value is
+)
 # Startup event
 @app.on_event("startup")
 async def startup_event():
