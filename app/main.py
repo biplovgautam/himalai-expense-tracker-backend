@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 import os
 import sqlalchemy.exc
 from app.routes.user_detail import router as user_detail_router
+from app.routes.voucher_router import router as voucher_router
 
 # Load environment variables
 load_dotenv()
@@ -63,6 +64,7 @@ app.include_router(
     prefix="/api/users",  # This sets the base path for all routes in user_detail.py
     tags=["Users"]        # This organizes routes in the auto-generated docs
 )
+app.include_router(voucher_router, prefix="/api/vouchers", tags=["Vouchers"])
 
 # Startup event
 @app.on_event("startup")
